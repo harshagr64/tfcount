@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var useTerragrunt bool
 var planCMD = &cobra.Command{
 	Use:   "plan",
 	Short: "Run terraform plan and summarize the changes",
@@ -21,36 +22,42 @@ var planCMD = &cobra.Command{
 func init() {
 	// register the plan command under root
 	rootCmd.AddCommand(planCMD)
+	planCMD.Flags().BoolVar(&useTerragrunt, "terragrunt", false, "Use terragrunt instead of terraform")
 }
 
 func runTerraformPlan() {
 
+	binary := "terraform"
+
+	if useTerragrunt {
+		binary = "terragrunt"
+	}
 	// step 1: Run terraform plan -out-tfplan.out
-	fmt.Println("Running terraform plan...")
-	planCMD := exec.Command("terraform", "plan", "-out=tfplan.out")
+	fmt.Printf("Running %v plan...\n", binary)
+	planCMD := exec.Command(binary, "plan", "-out=tfplan.out")
 	planCMD.Stdout = os.Stdout
 	planCMD.Stderr = os.Stderr
 
 	if err := planCMD.Run(); err != nil {
-		fmt.Printf("Error running the terraform plan: %v\n", err)
+		fmt.Printf("Error running %v plan: %v\n", binary, err)
 		return
 	}
 
 	// step 2: Run terraform show -json tfplan.out
-	fmt.Println("Running terraform show...")
-	showCMD := exec.Command("terraform", "show", "-json", "tfplan.out")
+	fmt.Printf("Running %v show...\n", binary)
+	showCMD := exec.Command(binary, "show", "-json", "tfplan.out")
 	var stdout bytes.Buffer
 	showCMD.Stdout = &stdout
 
 	if err := showCMD.Run(); err != nil {
-		fmt.Printf("Error running the terraform show: %v\n", err)
+		fmt.Printf("Error running the %v show: %v\n", binary, err)
 		return
 	}
 
 	// step 3: Parse the JSON output
 	var tfPlan TerraformPlan
 	if err := json.Unmarshal(stdout.Bytes(), &tfPlan); err != nil {
-		fmt.Printf("Error parsing the terraform plan JSON: %v\n", err)
+		fmt.Printf("Error parsing the %v plan JSON: %v\n", binary, err)
 		return
 	}
 
@@ -72,7 +79,7 @@ func runTerraformPlan() {
 	// step 5: Print resource change summary
 	fmt.Println("\n📊 Resource Change Summary:")
 	for resType, actions := range counts {
-		fmt.Printf("- %s:\n", resType)
+		fmt.Printf("%s:\n", resType)
 		for action, count := range actions {
 			symbol := map[string]string{"create": "+", "update": "~", "delete": "-"}[action]
 			fmt.Printf("    %s %s: %d\n", symbol, action, count)
