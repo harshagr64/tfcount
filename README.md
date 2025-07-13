@@ -1,6 +1,7 @@
 # tfcount 🚀
 
 A CLI tool to summarize Terraform plan outputs by resource type and action (create, update, delete).
+> ⚠️ **Note:** `tfcount` is currently supported **only on macOS** (Apple Silicon). Support for Linux and Windows coming soon!
 
 ## Features ✨
 
@@ -17,19 +18,25 @@ A CLI tool to summarize Terraform plan outputs by resource type and action (crea
 - Terraform (for generating plan outputs)
 
 ## Installation ⚙️
+> **Platform Support**: This version supports **macOS only**. Other platforms are not yet supported.
+>
+> 🛠️ **No Go Required**: You do **not** need Go installed for the quick install method.
 
-### Using `go install`
+### Quick Install Command 🚀
 
 ```bash
-go install github.com/harshagr64/tfcount@latest
+curl -sSL https://gist.githubusercontent.com/harshagr64/a105164f646492ad99346bddb5ff107b/raw/a2c0afe169dd13ede5f827ac002f2c9ffcf8bddb/install-tfcount.sh | bash
+tfcount help
 ```
 
-### Build from Source
+### Install from Source 🛠️
 
 ```bash
 git clone https://github.com/harshagr64/tfcount.git
 cd tfcount
 go build -o tfcount
+sudo mv tfcount /usr/local/bin/
+tfcount help
 ```
 
 ## Usage 🛠️
