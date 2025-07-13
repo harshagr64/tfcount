@@ -64,30 +64,36 @@ func runTerraformPlan() {
 	// step 4: Summarize by resource type and action
 	counts := make(map[string]map[string]int)
 	for _, rc := range tfPlan.ResourceChanges {
-		// fmt.Printf("Resource change: %v\n\n", rc)
 		resourceType := rc.Type
 
 		for _, action := range rc.Change.Actions {
-			if counts[resourceType] == nil {
-				counts[resourceType] = make(map[string]int)
+			if action != "no-op" {
+				if counts[resourceType] == nil {
+					fmt.Println("inside second if block")
+					counts[resourceType] = make(map[string]int)
+				}
+				counts[resourceType][action]++
 			}
-
-			counts[resourceType][action]++
 		}
 	}
 
 	// step 5: Print resource change summary
-	fmt.Println("\n📊 Resource Change Summary:")
-	for resType, actions := range counts {
-		fmt.Printf("%s:\n", resType)
-		for action, count := range actions {
-			symbol := map[string]string{"create": "+", "update": "~", "delete": "-"}[action]
-			fmt.Printf("    %s %s: %d\n", symbol, action, count)
+	if len(counts) != 0 {
+		fmt.Println("\n📊 Resource Change Summary:")
+		for resType, actions := range counts {
+			fmt.Printf("%s:\n", resType)
+			for action, count := range actions {
+				symbol := map[string]string{"create": "+", "update": "~", "delete": "-"}[action]
+				fmt.Printf("    %s %s: %d\n", symbol, action, count)
+			}
 		}
 	}
 
 	// Optional cleanup
 	_ = os.Remove("tfplan.out")
+
+	// ✅ Final success message
+	fmt.Println("\n✅ Terraform plan summary completed successfully.")
 }
 
 type TerraformPlan struct {
