@@ -69,7 +69,6 @@ func runTerraformPlan() {
 		for _, action := range rc.Change.Actions {
 			if action != "no-op" {
 				if counts[resourceType] == nil {
-					fmt.Println("inside second if block")
 					counts[resourceType] = make(map[string]int)
 				}
 				counts[resourceType][action]++
