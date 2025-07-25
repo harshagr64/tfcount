@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
 
@@ -21,6 +22,10 @@ var planCMD = &cobra.Command{
 
 func init() {
 	// register the plan command under root
+	color.Cyan("Prints text in cyan.")
+	fmt.Printf("Debug: %+q\n", color.GreenString("+"))
+	fmt.Println(color.GreenString("+"))
+
 	rootCmd.AddCommand(planCMD)
 	planCMD.Flags().BoolVar(&useTerragrunt, "terragrunt", false, "Use terragrunt instead of terraform")
 }
@@ -82,7 +87,17 @@ func runTerraformPlan() {
 		for resType, actions := range counts {
 			fmt.Printf("%s:\n", resType)
 			for action, count := range actions {
-				symbol := map[string]string{"create": "+", "update": "~", "delete": "-"}[action]
+				var symbol string
+				switch action {
+				case "create":
+					symbol = color.GreenString("+")
+				case "update":
+					symbol = color.YellowString("~")
+				case "delete":
+					symbol = color.RedString("-")
+				default:
+					symbol = "?"
+				}
 				fmt.Printf("    %s %s: %d\n", symbol, action, count)
 			}
 		}
