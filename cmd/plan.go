@@ -22,10 +22,6 @@ var planCMD = &cobra.Command{
 
 func init() {
 	// register the plan command under root
-	color.Cyan("Prints text in cyan.")
-	fmt.Printf("Debug: %+q\n", color.GreenString("+"))
-	fmt.Println(color.GreenString("+"))
-
 	rootCmd.AddCommand(planCMD)
 	planCMD.Flags().BoolVar(&useTerragrunt, "terragrunt", false, "Use terragrunt instead of terraform")
 }
