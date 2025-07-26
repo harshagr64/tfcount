@@ -32,7 +32,6 @@ bash <(curl -sSL https://gist.githubusercontent.com/harshagr64/a105164f646492ad9
 # Specific version (positional)
 bash <(curl -sSL https://gist.githubusercontent.com/harshagr64/a105164f646492ad99346bddb5ff107b/raw/0b8c6b9a1d73dcd0523fbfa9e1d64d58bffa1471/install-tfcount.sh) v0.1.0
 
-
 # Specific version (env var)
 TFCOUNT_VERSION=v0.1.0 bash <(curl -sSL https://gist.githubusercontent.com/harshagr64/a105164f646492ad99346bddb5ff107b/raw/0b8c6b9a1d73dcd0523fbfa9e1d64d58bffa1471/install-tfcount.sh)
 ```
