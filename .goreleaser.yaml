@@ -1,0 +1,45 @@
+version: 2
+
+before:
+  hooks:
+    # You may remove this if you don't use go modules.
+    - go mod tidy
+    # This ensures that all dependencies are downloaded before building.
+    - go mod download
+
+builds:
+  - env:
+      # CGO is disabled to ensure statically linked binaries for portability across systems.
+      - CGO_ENABLED=0
+    binary: "{{ .ProjectName }}"
+    goos:
+      - linux
+      - darwin
+
+archives:
+  - formats: [tar.gz]
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    files:
+      - LICENSE
+      - README.md
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "README"
+
+# release:
+#   footer: >-
+
+#     ---
+
+#     Released by [GoReleaser](https://github.com/goreleaser/goreleaser).
