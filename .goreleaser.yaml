@@ -4,11 +4,12 @@ before:
   hooks:
     # You may remove this if you don't use go modules.
     - go mod tidy
-    # you may remove this if you don't need go generate
+    # This ensures that all dependencies are downloaded before building.
     - go mod download
 
 builds:
   - env:
+      # CGO is disabled to ensure statically linked binaries for portability across systems.
       - CGO_ENABLED=0
     binary: "{{ .ProjectName }}"
     goos:
