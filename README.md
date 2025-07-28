@@ -27,13 +27,13 @@ A CLI tool to summarize Terraform plan outputs by resource type and action (crea
 
 ```bash
 # Quick install (latest)
-bash <(curl -sSL https://gist.githubusercontent.com/harshagr64/a105164f646492ad99346bddb5ff107b/raw/0b8c6b9a1d73dcd0523fbfa9e1d64d58bffa1471/install-tfcount.sh)
+bash <(curl -sSL https://gist.githubusercontent.com/harshagr64/a105164f646492ad99346bddb5ff107b/raw/34003a4f8f7f62aec4660304be569fb1fa1ad930/install-tfcount.sh)
 
 # Specific version (positional)
-bash <(curl -sSL https://gist.githubusercontent.com/harshagr64/a105164f646492ad99346bddb5ff107b/raw/0b8c6b9a1d73dcd0523fbfa9e1d64d58bffa1471/install-tfcount.sh) v0.1.0
+bash <(curl -sSL https://gist.githubusercontent.com/harshagr64/a105164f646492ad99346bddb5ff107b/raw/34003a4f8f7f62aec4660304be569fb1fa1ad930/install-tfcount.sh) v0.1.0
 
 # Specific version (env var)
-TFCOUNT_VERSION=v0.1.0 bash <(curl -sSL https://gist.githubusercontent.com/harshagr64/a105164f646492ad99346bddb5ff107b/raw/0b8c6b9a1d73dcd0523fbfa9e1d64d58bffa1471/install-tfcount.sh)
+TFCOUNT_VERSION=v0.1.0 bash <(curl -sSL https://gist.githubusercontent.com/harshagr64/a105164f646492ad99346bddb5ff107b/raw/34003a4f8f7f62aec4660304be569fb1fa1ad930/install-tfcount.sh)
 ```
 
 ### Install from Source 🛠️
