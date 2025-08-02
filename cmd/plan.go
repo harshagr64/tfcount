@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -77,11 +78,14 @@ func runTerraformPlan() {
 		}
 	}
 
-	// step 5: Print resource change summary
+	// step 5: Print resource change summary in clean tabular format
 	if len(counts) != 0 {
 		fmt.Println("\n📊 Resource Change Summary:")
+		fmt.Println("┌────────────────────────────────────────┬──────────────────┐")
+		fmt.Printf("│ %-38s │ %-16s │\n", "Resource Type", "Operation")
+		fmt.Println("├────────────────────────────────────────┼──────────────────┤")
+		
 		for resType, actions := range counts {
-			fmt.Printf("%s:\n", resType)
 			for action, count := range actions {
 				var symbol string
 				switch action {
@@ -94,9 +98,22 @@ func runTerraformPlan() {
 				default:
 					symbol = "?"
 				}
-				fmt.Printf("    %s %s: %d\n", symbol, action, count)
+				
+				// Format operation without color for length calculation
+				baseOp := fmt.Sprintf("+ %s: %d", action, count)
+				coloredOp := fmt.Sprintf("%s %s: %d", symbol, action, count)
+				
+				// Calculate spaces needed to align properly
+				spaces := 16 - len(baseOp)
+				if spaces < 0 {
+					spaces = 0
+				}
+				
+				fmt.Printf("│ %-38s │ %s%s │\n", resType, coloredOp, strings.Repeat(" ", spaces))
 			}
 		}
+		
+		fmt.Println("└────────────────────────────────────────┴──────────────────┘")
 	}
 
 	// Optional cleanup
