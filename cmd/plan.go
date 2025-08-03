@@ -22,7 +22,6 @@ var planCMD = &cobra.Command{
 
 func init() {
 	// register the plan command under root
-	rootCmd.PersistentFlags().BoolVarP(&showVersion, "version", "v", false, "Print the version and exit")
 	rootCmd.AddCommand(planCMD)
 	planCMD.Flags().BoolVar(&useTerragrunt, "terragrunt", false, "Use terragrunt instead of terraform")
 }
