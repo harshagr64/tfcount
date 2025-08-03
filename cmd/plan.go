@@ -12,58 +12,102 @@ import (
 )
 
 var useTerragrunt bool
+
 var planCMD = &cobra.Command{
 	Use:   "plan",
 	Short: "Run plan and summarize the changes",
-	Run: func(cmd *cobra.Command, args []string) {
-		runTerraformPlan()
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runTerraformPlan()
 	},
 }
 
 func init() {
 	// register the plan command under root
 	rootCmd.AddCommand(planCMD)
-	planCMD.Flags().BoolVar(&useTerragrunt, "terragrunt", false, "Use terragrunt instead of terraform")
+	planCMD.Flags().BoolVarP(&useTerragrunt, "terragrunt", "g", false, "Use terragrunt instead of terraform")
 }
 
-func runTerraformPlan() {
+// runTerraformPlan orchestrates the entire plan process
+func runTerraformPlan() error {
+	binary := getBinary()
 
-	binary := "terraform"
+	// Step 1: Generate plan file
+	if err := generatePlanFile(binary); err != nil {
+		return fmt.Errorf("failed to generate plan: %w", err)
+	}
 
+	// Step 2: Extract JSON from plan
+	planJSON, err := extractPlanJSON(binary)
+	if err != nil {
+		return fmt.Errorf("failed to extract plan JSON: %w", err)
+	}
+
+	// Step 3: Parse and summarize
+	counts, err := parsePlanAndSummarize(planJSON)
+	if err != nil {
+		return fmt.Errorf("failed to parse plan: %w", err)
+	}
+
+	// Step 4: Display results
+	displaySummary(counts)
+
+	// Step 5: Cleanup
+	if err := cleanup(); err != nil {
+		fmt.Printf("Warning: failed to cleanup: %v\n", err)
+	}
+
+	fmt.Printf("✅ %v plan summary completed successfully!\n", binary)
+	return nil
+}
+
+// getBinary returns the appropriate binary name based on flags
+func getBinary() string {
 	if useTerragrunt {
-		binary = "terragrunt"
+		return "terragrunt"
 	}
-	// step 1: Run terraform plan -out-tfplan.out
-	fmt.Printf("Running %v plan...\n", binary)
-	planCMD := exec.Command(binary, "plan", "-out=tfplan.out")
-	planCMD.Stdout = os.Stdout
-	planCMD.Stderr = os.Stderr
+	return "terraform"
+}
 
-	if err := planCMD.Run(); err != nil {
-		fmt.Printf("Error running %v plan: %v\n", binary, err)
-		return
+// generatePlanFile runs terraform/terragrunt plan and generates the plan file
+func generatePlanFile(binary string) error {
+	fmt.Printf("Running %s plan...\n", binary)
+
+	cmd := exec.Command(binary, "plan", "-out=tfplan.out")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("error running %s plan: %w", binary, err)
 	}
 
-	// step 2: Run terraform show -json tfplan.out
-	fmt.Printf("Running %v show...\n", binary)
-	showCMD := exec.Command(binary, "show", "-json", "tfplan.out")
+	return nil
+}
+
+// extractPlanJSON runs terraform/terragrunt show and returns the JSON output
+func extractPlanJSON(binary string) ([]byte, error) {
+	fmt.Printf("Running %s show...\n", binary)
+
+	cmd := exec.Command(binary, "show", "-json", "tfplan.out")
 	var stdout bytes.Buffer
-	showCMD.Stdout = &stdout
+	cmd.Stdout = &stdout
+	cmd.Stderr = os.Stderr
 
-	if err := showCMD.Run(); err != nil {
-		fmt.Printf("Error running the %v show: %v\n", binary, err)
-		return
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("error running %s show: %w", binary, err)
 	}
 
-	// step 3: Parse the JSON output
+	return stdout.Bytes(), nil
+}
+
+// parsePlanAndSummarize parses the JSON and returns resource change counts
+func parsePlanAndSummarize(planJSON []byte) (map[string]map[string]int, error) {
 	var tfPlan TerraformPlan
-	if err := json.Unmarshal(stdout.Bytes(), &tfPlan); err != nil {
-		fmt.Printf("Error parsing the %v plan JSON: %v\n", binary, err)
-		return
+	if err := json.Unmarshal(planJSON, &tfPlan); err != nil {
+		return nil, fmt.Errorf("error parsing plan JSON: %w", err)
 	}
 
-	// step 4: Summarize by resource type and action
 	counts := make(map[string]map[string]int)
+
 	for _, rc := range tfPlan.ResourceChanges {
 		resourceType := rc.Type
 
@@ -77,40 +121,64 @@ func runTerraformPlan() {
 		}
 	}
 
-	// step 5: Print resource change summary
-	if len(counts) != 0 {
-		fmt.Println("\n📊 Resource Change Summary:")
-		for resType, actions := range counts {
-			fmt.Printf("%s:\n", resType)
-			for action, count := range actions {
-				var symbol string
-				switch action {
-				case "create":
-					symbol = color.GreenString("+")
-				case "update":
-					symbol = color.YellowString("~")
-				case "delete":
-					symbol = color.RedString("-")
-				default:
-					symbol = "?"
-				}
-				fmt.Printf("    %s %s: %d\n", symbol, action, count)
-			}
-		}
-	}
-
-	// Optional cleanup
-	_ = os.Remove("tfplan.out")
-
-	// ✅ Final success message
-	fmt.Println("\n✅ Terraform plan summary completed successfully.")
+	return counts, nil
 }
 
+// displaySummary prints the resource change summary with colors
+func displaySummary(counts map[string]map[string]int) {
+	if len(counts) == 0 {
+		fmt.Println("📊 No resource changes detected.")
+		return
+	}
+
+	fmt.Println("📊 Resource Change Summary:")
+
+	for resourceType, actions := range counts {
+		fmt.Printf("%s:\n", resourceType)
+
+		for action, count := range actions {
+			symbol, colorFunc := getActionSymbolAndColor(action)
+			fmt.Printf("    %s %s: %d\n", symbol, colorFunc(action), count)
+		}
+	}
+}
+
+// getActionSymbolAndColor returns the appropriate symbol and color function for an action
+func getActionSymbolAndColor(action string) (string, func(string) string) {
+	switch action {
+	case "create":
+		green := color.New(color.FgGreen).SprintFunc()
+		return green("+"), func(s string) string { return s }
+	case "update":
+		yellow := color.New(color.FgYellow).SprintFunc()
+		return yellow("~"), func(s string) string { return s }
+	case "delete":
+		red := color.New(color.FgRed).SprintFunc()
+		return red("-"), func(s string) string { return s }
+	default:
+		cyan := color.New(color.FgCyan).SprintFunc()
+		return cyan("?"), func(s string) string { return s }
+	}
+}
+
+// cleanup removes temporary files
+func cleanup() error {
+	if err := os.Remove("tfplan.out"); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to remove tfplan.out: %w", err)
+	}
+	return nil
+}
+
+// TerraformPlan represents the structure of terraform plan JSON output
 type TerraformPlan struct {
-	ResourceChanges []struct {
-		Type   string `json:"type"`
-		Change struct {
-			Actions []string `json:"actions"`
-		} `json:"change"`
-	} `json:"resource_changes"`
+	ResourceChanges []ResourceChange `json:"resource_changes"`
+}
+
+type ResourceChange struct {
+	Type   string `json:"type"`
+	Change Change `json:"change"`
+}
+
+type Change struct {
+	Actions []string `json:"actions"`
 }
