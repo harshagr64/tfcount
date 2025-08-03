@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -14,30 +15,36 @@ import (
 var useTerragrunt bool
 
 var planCMD = &cobra.Command{
-	Use:   "plan",
+	Use:   "plan [-- tool-args...]",
 	Short: "Run plan and summarize the changes",
+	Long: `Run plan and summarize the changes by resource type and action.
+
+Use -- to pass native terraform/terragrunt arguments:
+  tfcount plan -- -var="environment=prod"
+  tfcount plan --terragrunt -- -var-file="vars/prod.tfvars"`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return runTerraformPlan()
+		return runPlan(args) // Pass args to runPlan
 	},
 }
 
 func init() {
 	// register the plan command under root
 	rootCmd.AddCommand(planCMD)
-	planCMD.Flags().BoolVarP(&useTerragrunt, "terragrunt", "g", false, "Use terragrunt instead of terraform")
+	planCMD.Flags().BoolVarP(&useTerragrunt, "terragrunt", "g", false, "To use terragrunt")
 }
 
-// runTerraformPlan orchestrates the entire plan process
-func runTerraformPlan() error {
+// runPlan orchestrates the entire plan process
+func runPlan(extraArgs []string) error {
 	binary := getBinary()
 
-	// Step 1: Generate plan file
-	if err := generatePlanFile(binary); err != nil {
+	// Step 1: Generate plan file and get the filename used
+	planFile, err := generatePlanFile(binary, extraArgs)
+	if err != nil {
 		return fmt.Errorf("failed to generate plan: %w", err)
 	}
 
 	// Step 2: Extract JSON from plan
-	planJSON, err := extractPlanJSON(binary)
+	planJSON, err := extractPlanJSON(binary, planFile)
 	if err != nil {
 		return fmt.Errorf("failed to extract plan JSON: %w", err)
 	}
@@ -50,11 +57,6 @@ func runTerraformPlan() error {
 
 	// Step 4: Display results
 	displaySummary(counts)
-
-	// Step 5: Cleanup
-	if err := cleanup(); err != nil {
-		fmt.Printf("Warning: failed to cleanup: %v\n", err)
-	}
 
 	fmt.Printf("✅ %v plan summary completed successfully!\n", binary)
 	return nil
@@ -69,25 +71,61 @@ func getBinary() string {
 }
 
 // generatePlanFile runs terraform/terragrunt plan and generates the plan file
-func generatePlanFile(binary string) error {
-	fmt.Printf("Running %s plan...\n", binary)
+// Returns the plan filename used
+func generatePlanFile(binary string, extraArgs []string) (string, error) {
+	planFile, filteredArgs := extractOutFlag(extraArgs)
+	if planFile == "" {
+		planFile = "tfplan.out" // Default if user didn't specify
+	}
 
-	cmd := exec.Command(binary, "plan", "-out=tfplan.out")
+	args := []string{"plan", fmt.Sprintf("-out=%s", planFile)}
+	args = append(args, filteredArgs...)
+
+	fmt.Printf("Running %s %s\n", binary, formatArgsForDisplay(args))
+
+	cmd := exec.Command(binary, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("error running %s plan: %w", binary, err)
+		return "", fmt.Errorf("error running %s plan: %w", binary, err)
 	}
 
-	return nil
+	return planFile, nil
+}
+
+// extractOutFlag extracts the -out flag value and returns filtered args without -out
+func extractOutFlag(args []string) (string, []string) {
+	var outFile string
+	var filtered []string
+
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+
+		if arg == "-out" && i+1 < len(args) {
+			// -out filename format
+			outFile = args[i+1]
+			i++ // Skip the next argument (filename) - this works now because we control the loop
+		} else if len(arg) > 5 && arg[:5] == "-out=" {
+			// -out=filename format
+			outFile = arg[5:]
+		} else {
+			filtered = append(filtered, arg)
+		}
+	}
+	return outFile, filtered
+}
+
+// formatArgsForDisplay formats command arguments for user-friendly display
+func formatArgsForDisplay(args []string) string {
+	return strings.Join(args, " ")
 }
 
 // extractPlanJSON runs terraform/terragrunt show and returns the JSON output
-func extractPlanJSON(binary string) ([]byte, error) {
-	fmt.Printf("Running %s show...\n", binary)
+func extractPlanJSON(binary string, planFile string) ([]byte, error) {
+	fmt.Printf("Running %s show -json %s\n", binary, planFile)
 
-	cmd := exec.Command(binary, "show", "-json", "tfplan.out")
+	cmd := exec.Command(binary, "show", "-json", planFile)
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = os.Stderr
@@ -159,14 +197,6 @@ func getActionSymbolAndColor(action string) (string, func(string) string) {
 		cyan := color.New(color.FgCyan).SprintFunc()
 		return cyan("?"), func(s string) string { return s }
 	}
-}
-
-// cleanup removes temporary files
-func cleanup() error {
-	if err := os.Remove("tfplan.out"); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to remove tfplan.out: %w", err)
-	}
-	return nil
 }
 
 // TerraformPlan represents the structure of terraform plan JSON output
