@@ -14,7 +14,7 @@ import (
 var useTerragrunt bool
 var planCMD = &cobra.Command{
 	Use:   "plan",
-	Short: "Run terraform plan and summarize the changes",
+	Short: "Run plan and summarize the changes",
 	Run: func(cmd *cobra.Command, args []string) {
 		runTerraformPlan()
 	},
@@ -22,6 +22,7 @@ var planCMD = &cobra.Command{
 
 func init() {
 	// register the plan command under root
+	rootCmd.PersistentFlags().BoolVarP(&showVersion, "version", "v", false, "Print the version and exit")
 	rootCmd.AddCommand(planCMD)
 	planCMD.Flags().BoolVar(&useTerragrunt, "terragrunt", false, "Use terragrunt instead of terraform")
 }
