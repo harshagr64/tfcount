@@ -8,12 +8,25 @@ import (
 )
 
 // represent the root command of cli application
+var showVersion bool
+var version = "dev"
 var rootCmd = &cobra.Command{
 	Use:   "tfcount",
-	Short: "A simple CLI to summarize terraform plan outputs by resource type and action",
-	Run: func(cmd *cobra.Command, args []string) {
-		// logic for root cmd
+	Short: "A simple CLI to summarize terraform/terragrunt plan outputs by resource type and action",
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		if showVersion {
+			fmt.Printf("%s version %s\n", cmd.Name(), version)
+			os.Exit(0)
+		}
 	},
+	Run: func(cmd *cobra.Command, args []string) {
+		cmd.Help()
+	},
+}
+
+func init() {
+	// add version flag to root command
+	rootCmd.PersistentFlags().BoolVarP(&showVersion, "version", "v", false, "Show version information")
 }
 
 // entrypoint for the CLI

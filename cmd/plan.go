@@ -14,7 +14,7 @@ import (
 var useTerragrunt bool
 var planCMD = &cobra.Command{
 	Use:   "plan",
-	Short: "Run terraform plan and summarize the changes",
+	Short: "Run plan and summarize the changes",
 	Run: func(cmd *cobra.Command, args []string) {
 		runTerraformPlan()
 	},
