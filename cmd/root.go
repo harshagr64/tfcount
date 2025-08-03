@@ -15,7 +15,7 @@ var rootCmd = &cobra.Command{
 	Short: "A simple CLI to summarize terraform/terragrunt plan outputs by resource type and action",
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		if showVersion {
-			fmt.Println(cmd.Name(), version)
+			fmt.Printf("%s version %s\n", cmd.Name(), version)
 			os.Exit(0)
 		}
 	},
