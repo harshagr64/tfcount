@@ -22,6 +22,7 @@ var planCMD = &cobra.Command{
 Use -- to pass native terraform/terragrunt arguments:
   tfcount plan -- -var="environment=prod"
   tfcount plan --terragrunt -- -var-file="vars/prod.tfvars"`,
+	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runPlan(args) // Pass args to runPlan
 	},
@@ -38,10 +39,19 @@ func runPlan(extraArgs []string) error {
 	binary := getBinary()
 
 	// Step 1: Generate plan file and get the filename used
-	planFile, err := generatePlanFile(binary, extraArgs)
+	planFile, userProvidedOut, err := generatePlanFile(binary, extraArgs)
 	if err != nil {
 		return fmt.Errorf("failed to generate plan: %w", err)
 	}
+
+	// Set up cleanup to run automatically when function exits (only if auto-generated)
+	defer func() {
+		if !userProvidedOut {
+			if cleanupErr := cleanup(planFile); cleanupErr != nil {
+				fmt.Printf("Warning: failed to cleanup plan file: %v\n", cleanupErr)
+			}
+		}
+	}()
 
 	// Step 2: Extract JSON from plan
 	planJSON, err := extractPlanJSON(binary, planFile)
@@ -72,8 +82,11 @@ func getBinary() string {
 
 // generatePlanFile runs terraform/terragrunt plan and generates the plan file
 // Returns the plan filename used
-func generatePlanFile(binary string, extraArgs []string) (string, error) {
+func generatePlanFile(binary string, extraArgs []string) (string, bool, error) {
 	planFile, filteredArgs := extractOutFlag(extraArgs)
+
+	userProvidedOut := planFile != ""
+
 	if planFile == "" {
 		planFile = "tfplan.out" // Default if user didn't specify
 	}
@@ -88,10 +101,14 @@ func generatePlanFile(binary string, extraArgs []string) (string, error) {
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("error running %s plan: %w", binary, err)
+		// Clean up partial plan file if auto-generated and command failed
+		if !userProvidedOut {
+			os.Remove(planFile) // Ignore cleanup error in failure case
+		}
+		return "", userProvidedOut, fmt.Errorf("error running %s plan: %w", binary, err)
 	}
 
-	return planFile, nil
+	return planFile, userProvidedOut, nil
 }
 
 // extractOutFlag extracts the -out flag value and returns filtered args without -out
@@ -197,6 +214,14 @@ func getActionSymbolAndColor(action string) (string, func(string) string) {
 		cyan := color.New(color.FgCyan).SprintFunc()
 		return cyan("?"), func(s string) string { return s }
 	}
+}
+
+// cleanup removes temporary files
+func cleanup(planFile string) error {
+	if err := os.Remove(planFile); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to remove %s: %w", planFile, err)
+	}
+	return nil
 }
 
 // TerraformPlan represents the structure of terraform plan JSON output
