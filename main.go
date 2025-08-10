@@ -1,8 +1,6 @@
 package main
 
-import (
-	"tfcount/cmd"
-)
+import "tfcount/cmd"
 
 func main() {
 	cmd.Execute()
