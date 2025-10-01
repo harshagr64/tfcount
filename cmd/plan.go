@@ -6,13 +6,16 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"sort"
 	"strings"
 
 	"github.com/fatih/color"
+	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 )
 
 var useTerragrunt bool
+var useTableFormat bool
 
 var planCMD = &cobra.Command{
 	Use:   "plan [-- tool-args...]",
@@ -32,6 +35,7 @@ func init() {
 	// register the plan command under root
 	rootCmd.AddCommand(planCMD)
 	planCMD.Flags().BoolVarP(&useTerragrunt, "terragrunt", "g", false, "To use terragrunt")
+	planCMD.Flags().BoolVarP(&useTableFormat, "table", "t", true, "Display output in table format (default: true)")
 }
 
 // runPlan orchestrates the entire plan process
@@ -186,12 +190,114 @@ func displaySummary(counts map[string]map[string]int) {
 		return
 	}
 
+	if useTableFormat {
+		displayTableSummary(counts)
+	} else {
+		displayPlainSummary(counts)
+	}
+}
+
+// displayTableSummary displays the summary in a table format
+func displayTableSummary(counts map[string]map[string]int) {
+	fmt.Println("📊 Resource Change Summary:")
+	fmt.Println()
+
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader([]string{"Resource Type", "Action", "Count", "Symbol"})
+	table.SetBorder(true)
+	table.SetRowLine(true)
+	table.SetAlignment(tablewriter.ALIGN_LEFT)
+	table.SetHeaderAlignment(tablewriter.ALIGN_CENTER)
+	table.SetColumnAlignment([]int{tablewriter.ALIGN_LEFT, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER})
+
+	// Set colors for different parts of the table
+	table.SetHeaderColor(
+		tablewriter.Colors{tablewriter.Bold, tablewriter.FgCyanColor},
+		tablewriter.Colors{tablewriter.Bold, tablewriter.FgCyanColor},
+		tablewriter.Colors{tablewriter.Bold, tablewriter.FgCyanColor},
+		tablewriter.Colors{tablewriter.Bold, tablewriter.FgCyanColor},
+	)
+
+	// Collect and sort data for consistent output
+	type tableRow struct {
+		resourceType string
+		action       string
+		count        int
+		symbol       string
+		color        tablewriter.Colors
+	}
+
+	var rows []tableRow
+
+	// Get sorted resource types for consistent ordering
+	var resourceTypes []string
+	for resourceType := range counts {
+		resourceTypes = append(resourceTypes, resourceType)
+	}
+	sort.Strings(resourceTypes)
+
+	for _, resourceType := range resourceTypes {
+		actions := counts[resourceType]
+
+		// Get sorted actions for consistent ordering
+		var actionNames []string
+		for action := range actions {
+			actionNames = append(actionNames, action)
+		}
+		sort.Strings(actionNames)
+
+		for _, action := range actionNames {
+			count := actions[action]
+			symbol, colorCodes := getActionSymbolAndTableColor(action)
+
+			rows = append(rows, tableRow{
+				resourceType: resourceType,
+				action:       action,
+				count:        count,
+				symbol:       symbol,
+				color:        colorCodes,
+			})
+		}
+	}
+
+	// Add rows to table with colors
+	for _, row := range rows {
+		table.Rich([]string{row.resourceType, row.action, fmt.Sprintf("%d", row.count), row.symbol},
+			[]tablewriter.Colors{
+				{},        // Resource type - no color
+				row.color, // Action - colored based on action type
+				{},        // Count - no color  
+				row.color, // Symbol - colored based on action type
+			})
+	}
+
+	table.Render()
+}
+
+// displayPlainSummary displays the summary in plain text format (original format)
+func displayPlainSummary(counts map[string]map[string]int) {
 	fmt.Println("📊 Resource Change Summary:")
 
-	for resourceType, actions := range counts {
+	// Get sorted resource types for consistent ordering
+	var resourceTypes []string
+	for resourceType := range counts {
+		resourceTypes = append(resourceTypes, resourceType)
+	}
+	sort.Strings(resourceTypes)
+
+	for _, resourceType := range resourceTypes {
+		actions := counts[resourceType]
 		fmt.Printf("%s:\n", resourceType)
 
-		for action, count := range actions {
+		// Get sorted actions for consistent ordering  
+		var actionNames []string
+		for action := range actions {
+			actionNames = append(actionNames, action)
+		}
+		sort.Strings(actionNames)
+
+		for _, action := range actionNames {
+			count := actions[action]
 			symbol, colorFunc := getActionSymbolAndColor(action)
 			fmt.Printf("    %s %s: %d\n", symbol, colorFunc(action), count)
 		}
@@ -213,6 +319,24 @@ func getActionSymbolAndColor(action string) (string, func(string) string) {
 	default:
 		cyan := color.New(color.FgCyan).SprintFunc()
 		return cyan("?"), func(s string) string { return s }
+	}
+}
+
+// getActionSymbolAndTableColor returns the symbol and table color for an action
+func getActionSymbolAndTableColor(action string) (string, tablewriter.Colors) {
+	switch action {
+	case "create":
+		return "+", tablewriter.Colors{tablewriter.Bold, tablewriter.FgGreenColor}
+	case "update":
+		return "~", tablewriter.Colors{tablewriter.Bold, tablewriter.FgYellowColor}
+	case "delete":
+		return "-", tablewriter.Colors{tablewriter.Bold, tablewriter.FgRedColor}
+	case "replace":
+		return "±", tablewriter.Colors{tablewriter.Bold, tablewriter.FgMagentaColor}
+	case "read":
+		return "○", tablewriter.Colors{tablewriter.Bold, tablewriter.FgBlueColor}
+	default:
+		return "?", tablewriter.Colors{tablewriter.Bold, tablewriter.FgCyanColor}
 	}
 }
 
