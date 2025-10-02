@@ -316,6 +316,12 @@ func getActionSymbolAndColor(action string) (string, func(string) string) {
 	case "delete":
 		red := color.New(color.FgRed).SprintFunc()
 		return red("-"), func(s string) string { return s }
+	case "replace":
+		magenta := color.New(color.FgMagenta).SprintFunc()
+		return magenta("±"), func(s string) string { return s }
+	case "read":
+		blue := color.New(color.FgBlue).SprintFunc()
+		return blue("○"), func(s string) string { return s }
 	default:
 		cyan := color.New(color.FgCyan).SprintFunc()
 		return cyan("?"), func(s string) string { return s }
