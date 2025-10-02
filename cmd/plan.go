@@ -15,7 +15,7 @@ import (
 )
 
 var useTerragrunt bool
-var useTableFormat bool
+var outputFormat string
 
 var planCMD = &cobra.Command{
 	Use:   "plan [-- tool-args...]",
@@ -35,11 +35,16 @@ func init() {
 	// register the plan command under root
 	rootCmd.AddCommand(planCMD)
 	planCMD.Flags().BoolVarP(&useTerragrunt, "terragrunt", "g", false, "To use terragrunt")
-	planCMD.Flags().BoolVarP(&useTableFormat, "table", "t", true, "Display output in table format (default: true)")
+	planCMD.Flags().StringVarP(&outputFormat, "output", "o", "table", "Output format: 'table' (tabular view) or 'tree' (hierarchical view)")
 }
 
 // runPlan orchestrates the entire plan process
 func runPlan(extraArgs []string) error {
+	// Validate output format
+	if outputFormat != "table" && outputFormat != "tree" {
+		return fmt.Errorf("invalid output format '%s'. Supported formats: 'table', 'tree'", outputFormat)
+	}
+
 	binary := getBinary()
 
 	// Step 1: Generate plan file and get the filename used
@@ -190,10 +195,14 @@ func displaySummary(counts map[string]map[string]int) {
 		return
 	}
 
-	if useTableFormat {
+	switch outputFormat {
+	case "table":
 		displayTableSummary(counts)
-	} else {
+	case "tree":
 		displayPlainSummary(counts)
+	default:
+		fmt.Printf("Warning: Unknown output format '%s'. Using table format.\n", outputFormat)
+		displayTableSummary(counts)
 	}
 }
 
